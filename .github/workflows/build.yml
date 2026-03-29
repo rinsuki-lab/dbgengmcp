@@ -3,32 +3,57 @@ on:
     branches:
       - master
   pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. "0.1.0")'
+        required: false
 
 jobs:
   build:
     runs-on: windows-2025
+    strategy:
+      matrix:
+        include:
+        - arch_rust: x86_64
+          arch_windows: amd64
+        - arch_rust: aarch64
+          arch_windows: arm64
+        - arch_rust: i686
+          arch_windows: x86
     steps:
     - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: stable
-        targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc,aarch64-pc-windows-msvc
-    - run: cargo build --release --target x86_64-pc-windows-msvc --timings
+        targets: ${{ matrix.arch_rust }}-pc-windows-msvc
+    - run: cargo build --release --target ${{ matrix.arch_rust }}-pc-windows-msvc --timings
     - uses: actions/upload-artifact@v7
       with:
-        name: x86_64-pc-windows-msvc
-        path: target/x86_64-pc-windows-msvc/release/dbgengmcp.exe
-    - run: cargo build --release --target aarch64-pc-windows-msvc --timings
+        name: binaries-${{ matrix.arch_rust }}
+        path: target/${{ matrix.arch_rust }}-pc-windows-msvc/release/dbgengmcp.exe
     - uses: actions/upload-artifact@v7
       with:
-        name: aarch64-pc-windows-msvc
-        path: target/aarch64-pc-windows-msvc/release/dbgengmcp.exe
-    - run: cargo build --release --target i686-pc-windows-msvc --timings
-    - uses: actions/upload-artifact@v7
-      with:
-        name: i686-pc-windows-msvc
-        path: target/i686-pc-windows-msvc/release/dbgengmcp.exe
-    - uses: actions/upload-artifact@v7
-      with:
-        name: cargo-timings
+        name: cargo-timings-${{ matrix.arch_rust }}
         path: target/cargo-timings/*.html
+  draft-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+    needs: build
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: binaries-*
+    - run: |
+        for dir in binaries-*/*; do
+          arch=$(basename "$dir" | cut -d '-' -f 2)
+          zip -9 -j "dbgengmcp.${arch}.zip" "$dir/dbgengmcp.exe" ./README.md ./LICENSE
+        done
+    - run: |
+        gh release create --draft "$INPUT_VERSION" ./*.zip
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_VERSION: ${{ github.event.inputs.version }}
