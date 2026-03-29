@@ -81,6 +81,26 @@ impl DebuggerService {
         Ok(client.execute_command(params.command).await.unwrap())
     }
 
+    #[rmcp::tool(description = "Break the currently debugging program in connected WinDbg instance")]
+    pub async fn break_program(&self) -> Result<String, ErrorData> {
+        let client = {
+            let state = self.state.lock().unwrap();
+            match &state.client {
+                Some(c) => c.clone(),
+                None => {
+                    return Err(ErrorData::new(
+                        ErrorCode::INVALID_REQUEST,
+                        "Not connected to any WinDbg instance. Please call connect first."
+                            .to_string(),
+                        None,
+                    ));
+                }
+            }
+        };
+        client.break_program().await.unwrap();
+        Ok("Program interrupted".to_string())
+    }
+
     #[rmcp::tool(description = "Disconnect from WinDbg instance")]
     pub async fn disconnect(&self) -> Result<String, ErrorData> {
         let mut state = self.state.lock().unwrap();

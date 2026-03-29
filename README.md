@@ -8,7 +8,7 @@ DbgEng.dll を直接バックエンドとして利用した、WinDbg用のMCPサ
   * `remote`: 接続文字列
 * [x] `execute_command`: WinDbg コマンドを実行し、結果を得ます。WinDbg に接続できていない場合はエラーが帰ります。
   * `command`: 実行したいコマンド
-* [ ] `break_program`: 現在アタッチしているプログラムを Break します (実装予定)。
+* [x] `break_program`: 現在アタッチしているプログラムを Break します (実装予定)。
 * [x] `disconnect`: 接続していた WinDbg から切断します。WinDbgに接続できていない場合はエラーが帰ります。
   * (パラメータなし)
 

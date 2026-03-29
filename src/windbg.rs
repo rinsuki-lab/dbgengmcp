@@ -6,14 +6,14 @@ use std::{
 use tokio::sync::{mpsc, oneshot};
 use windows::{
     Win32::System::Diagnostics::Debug::Extensions::{
-        DEBUG_EXECUTE_ECHO, DEBUG_OUTCTL_ALL_CLIENTS, DebugConnectWide, IDebugClient5,
-        IDebugControl4, IDebugOutputCallbacksWide, IDebugOutputCallbacksWide_Impl,
+        DEBUG_EXECUTE_ECHO, DEBUG_INTERRUPT_ACTIVE, DEBUG_OUTCTL_ALL_CLIENTS, DebugConnectWide, IDebugClient5, IDebugControl4, IDebugOutputCallbacksWide, IDebugOutputCallbacksWide_Impl
     },
     core::{ComObject, HSTRING, Interface as _, PCWSTR, implement},
 };
 
 enum Request {
     Command(String, oneshot::Sender<String>),
+    BreakProgram(oneshot::Sender<()>),
 }
 
 #[derive(Clone)]
@@ -94,6 +94,10 @@ impl DebuggerClient {
                         let capture = capture_obj.take().unwrap();
                         ret.send(capture.get_output()).unwrap();
                     },
+                    Request::BreakProgram(ret) => unsafe {
+                        control.SetInterrupt(DEBUG_INTERRUPT_ACTIVE).unwrap();
+                        ret.send(()).unwrap();
+                    }
                 }
             }
         });
@@ -107,6 +111,12 @@ impl DebuggerClient {
     pub async fn execute_command(&self, command: String) -> windows::core::Result<String> {
         let (tx, rx) = oneshot::channel();
         self.send.send(Request::Command(command, tx)).await.unwrap();
+        Ok(rx.await.unwrap())
+    }
+
+    pub async fn break_program(&self) -> windows::core::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.send.send(Request::BreakProgram(tx)).await.unwrap();
         Ok(rx.await.unwrap())
     }
 
