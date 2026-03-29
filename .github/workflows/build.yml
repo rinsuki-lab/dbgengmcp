@@ -30,7 +30,7 @@ jobs:
     - run: cargo build --release --target ${{ matrix.arch_rust }}-pc-windows-msvc --timings
     - uses: actions/upload-artifact@v7
       with:
-        name: binaries-${{ matrix.arch_rust }}
+        name: binaries-${{ matrix.arch_windows }}
         path: target/${{ matrix.arch_rust }}-pc-windows-msvc/release/dbgengmcp.exe
     - uses: actions/upload-artifact@v7
       with:
