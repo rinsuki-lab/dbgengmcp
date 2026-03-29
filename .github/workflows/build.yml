@@ -48,7 +48,7 @@ jobs:
       with:
         pattern: binaries-*
     - run: |
-        for dir in binaries-*/*; do
+        for dir in binaries-*; do
           arch=$(basename "$dir" | cut -d '-' -f 2)
           zip -9 -j "dbgengmcp.${arch}.zip" "$dir/dbgengmcp.exe" ./README.md ./LICENSE
         done
