@@ -78,10 +78,18 @@ impl DebuggerService {
                 }
             }
         };
-        Ok(client.execute_command(params.command).await.unwrap())
+        client.execute_command(params.command).await.map_err(|e| {
+            ErrorData::new(
+                ErrorCode::INTERNAL_ERROR,
+                format!("Failed to execute command: {:?}", e),
+                None,
+            )
+        })
     }
 
-    #[rmcp::tool(description = "Break the currently debugging program in connected WinDbg instance")]
+    #[rmcp::tool(
+        description = "Break the currently debugging program in connected WinDbg instance"
+    )]
     pub async fn break_program(&self) -> Result<String, ErrorData> {
         let client = {
             let state = self.state.lock().unwrap();
@@ -97,8 +105,17 @@ impl DebuggerService {
                 }
             }
         };
-        client.break_program().await.unwrap();
-        Ok("Program interrupted".to_string())
+        client
+            .break_program()
+            .await
+            .map(|_| "Program interrupted".to_string())
+            .map_err(|e| {
+                ErrorData::new(
+                    ErrorCode::INTERNAL_ERROR,
+                    format!("Failed to break program: {:?}", e),
+                    None,
+                )
+            })
     }
 
     #[rmcp::tool(description = "Disconnect from WinDbg instance")]

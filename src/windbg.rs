@@ -6,14 +6,15 @@ use std::{
 use tokio::sync::{mpsc, oneshot};
 use windows::{
     Win32::System::Diagnostics::Debug::Extensions::{
-        DEBUG_EXECUTE_ECHO, DEBUG_INTERRUPT_ACTIVE, DEBUG_OUTCTL_ALL_CLIENTS, DebugConnectWide, IDebugClient5, IDebugControl4, IDebugOutputCallbacksWide, IDebugOutputCallbacksWide_Impl
+        DEBUG_EXECUTE_ECHO, DEBUG_INTERRUPT_ACTIVE, DEBUG_OUTCTL_ALL_CLIENTS, DebugConnectWide,
+        IDebugClient5, IDebugControl4, IDebugOutputCallbacksWide, IDebugOutputCallbacksWide_Impl,
     },
     core::{ComObject, HSTRING, Interface as _, PCWSTR, implement},
 };
 
 enum Request {
-    Command(String, oneshot::Sender<String>),
-    BreakProgram(oneshot::Sender<()>),
+    Command(String, oneshot::Sender<windows::core::Result<String>>),
+    BreakProgram(oneshot::Sender<windows::core::Result<()>>),
 }
 
 #[derive(Clone)]
@@ -82,22 +83,35 @@ impl DebuggerClient {
                         let command = HSTRING::from(command);
                         let capture = OutputCapture::new();
                         let capture_obj = ComObject::new(capture);
-                        client
-                            .SetOutputCallbacksWide(
-                                &capture_obj.cast::<IDebugOutputCallbacksWide>().unwrap(),
-                            )
-                            .unwrap();
-                        control
-                            .ExecuteWide(DEBUG_OUTCTL_ALL_CLIENTS, &command, DEBUG_EXECUTE_ECHO)
-                            .unwrap();
-                        client.SetOutputCallbacksWide(None).unwrap();
+                        let res = client.SetOutputCallbacksWide(
+                            &capture_obj.cast::<IDebugOutputCallbacksWide>().unwrap(),
+                        );
+                        if let Err(e) = res {
+                            ret.send(Err(e)).unwrap();
+                            continue;
+                        }
+                        let result = control.ExecuteWide(
+                            DEBUG_OUTCTL_ALL_CLIENTS,
+                            &command,
+                            DEBUG_EXECUTE_ECHO,
+                        );
+                        let res = client.SetOutputCallbacksWide(None);
+                        if let Err(e) = res {
+                            ret.send(Err(e)).unwrap();
+                            continue;
+                        }
                         let capture = capture_obj.take().unwrap();
-                        ret.send(capture.get_output()).unwrap();
+                        let mut capture = capture.get_output();
+                        if let Err(e) = result {
+                            use std::fmt::Write;
+                            write!(capture, "\nCommand execution failed with Error: {e}").unwrap();
+                        }
+                        ret.send(Ok(capture)).unwrap();
                     },
                     Request::BreakProgram(ret) => unsafe {
-                        control.SetInterrupt(DEBUG_INTERRUPT_ACTIVE).unwrap();
-                        ret.send(()).unwrap();
-                    }
+                        ret.send(control.SetInterrupt(DEBUG_INTERRUPT_ACTIVE))
+                            .unwrap();
+                    },
                 }
             }
         });
@@ -111,13 +125,13 @@ impl DebuggerClient {
     pub async fn execute_command(&self, command: String) -> windows::core::Result<String> {
         let (tx, rx) = oneshot::channel();
         self.send.send(Request::Command(command, tx)).await.unwrap();
-        Ok(rx.await.unwrap())
+        rx.await.unwrap()
     }
 
     pub async fn break_program(&self) -> windows::core::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.send.send(Request::BreakProgram(tx)).await.unwrap();
-        Ok(rx.await.unwrap())
+        rx.await.unwrap()
     }
 
     pub fn close(self) {

@@ -14,7 +14,6 @@ DbgEng.dll を直接バックエンドとして利用した、WinDbg用のMCPサ
 
 ### その他 TODO
 
-* [ ] `execute_command` のエラーハンドリング (現状panicしていて、よくない)
 * [ ] `execute_command` で progress 通知に対応し、(シンボルのリモートサーバーへの問い合わせなどの)長い時間かかるコマンド実行をタイムアウトさせない
 
 ## セットアップ
