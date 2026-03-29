@@ -13,6 +13,22 @@ jobs:
       with:
         toolchain: stable
         targets: x86_64-pc-windows-msvc,i686-pc-windows-msvc,aarch64-pc-windows-msvc
-    - run: cargo build --release --target x86_64-pc-windows-msvc
-    - run: cargo build --release --target i686-pc-windows-msvc
-    - run: cargo build --release --target aarch64-pc-windows-msvc
+    - run: cargo build --release --target x86_64-pc-windows-msvc --timings
+    - uses: actions/upload-artifact@v7
+      with:
+        name: x86_64-pc-windows-msvc
+        path: target/x86_64-pc-windows-msvc/release/dbgengmcp.exe
+    - run: cargo build --release --target aarch64-pc-windows-msvc --timings
+    - uses: actions/upload-artifact@v7
+      with:
+        name: aarch64-pc-windows-msvc
+        path: target/aarch64-pc-windows-msvc/release/dbgengmcp.exe
+    - run: cargo build --release --target i686-pc-windows-msvc --timings
+    - uses: actions/upload-artifact@v7
+      with:
+        name: i686-pc-windows-msvc
+        path: target/i686-pc-windows-msvc/release/dbgengmcp.exe
+    - uses: actions/upload-artifact@v7
+      with:
+        name: cargo-timings
+        path: target/cargo-timings/*.html
